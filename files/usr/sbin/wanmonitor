@@ -17,7 +17,9 @@ CHECK_HOST=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].check_host)
 INTERVAL=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].interval)
 SLEEP=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].sleep)
 WAN_PRIMARY=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].wan_primary)
+WAN_RIMARY_METRIC=$(/sbin/uci -q get network.${WAN_PRIMARY}.metric)
 WAN_SECONDARY=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].wan_secondary)
+WAN_SECONDARY_METRIC=$(/sbin/uci -q get network.${WAN_SECONDARY}.metric)
 
 function initialize() {
 	network_get_device IFNAME_WAN_PRIMARY ${WAN_PRIMARY}
@@ -68,14 +70,14 @@ function prepare() {
 		fi
 	done
 
-	/usr/bin/logger -t $0 -p ${LOGGER_DEBUG} "Primary WAN Interface: ${IFNAME_WAN_PRIMARY}, Gateway: ${GATEWAY_WAN_PRIMARY}"
-	/usr/bin/logger -t $0 -p ${LOGGER_DEBUG} "Secondary WAN Interface: ${IFNAME_WAN_SECONDARY}, Gateway: ${GATEWAY_WAN_SECONDARY}"
+	/usr/bin/logger -t $0 -p ${LOGGER_DEBUG} "Primary WAN Interface: ${IFNAME_WAN_PRIMARY}, Gateway: ${GATEWAY_WAN_PRIMARY}, Metric: ${WAN_PRIMARY_METRIC:-0}"
+	/usr/bin/logger -t $0 -p ${LOGGER_DEBUG} "Secondary WAN Interface: ${IFNAME_WAN_SECONDARY}, Gateway: ${GATEWAY_WAN_SECONDARY}, Metric: ${WAN_SECONDARY_METRIC:-0}"
 	/usr/bin/logger -t $0 -p ${LOGGER_DEBUG} "Checking host: ${CHECK_HOST} every ${INTERVAL} seconds interval"
 }
 
 function status() {
-	echo -e "Primary WAN Interface: ${IFNAME_WAN_PRIMARY}, Gateway: ${GATEWAY_WAN_PRIMARY}"
-	echo -e "Secondary WAN Interface ${IFNAME_WAN_SECONDARY}, Gateway: ${GATEWAY_WAN_SECONDARY}"
+	echo -e "Primary WAN Interface: ${IFNAME_WAN_PRIMARY}, Gateway: ${GATEWAY_WAN_PRIMARY}, Metric: ${WAN_PRIMARY_METRIC:-0}"
+	echo -e "Secondary WAN Interface ${IFNAME_WAN_SECONDARY}, Gateway: ${GATEWAY_WAN_SECONDARY}, Metric: ${WAN_SECONDARY_METRIC:-0}"
 	echo -e "Checking host: ${CHECK_HOST} every ${INTERVAL} seconds interval"
 	echo
 	ACTIVE=$(/bin/ps | grep 'wanmonitor -d' | grep -v 'grep' | wc -l)
@@ -123,22 +125,22 @@ while true; do
 	if [ "x${WAN_PRIMARY_STATUS}" = "xtrue" ]; then
 		CHECK_ROUTE=$(route | grep ${CHECK_HOST} | grep ${IFNAME_WAN_PRIMARY} | wc -l)
 		if [ "x${CHECK_ROUTE}" = "x0" ]; then
-			/sbin/route add -host ${CHECK_HOST} gateway ${GATEWAY_WAN_PRIMARY} ${IFNAME_WAN_PRIMARY} &>/dev/null
+			/sbin/route add -host ${CHECK_HOST} gateway ${GATEWAY_WAN_PRIMARY} metric 0 ${IFNAME_WAN_PRIMARY} &>/dev/null
 		fi
 		WAN_PRIMARY_PING=$(ping -I ${IFNAME_WAN_PRIMARY} -w 3 -c 3 ${CHECK_HOST} 2>/dev/null | awk '/packets received/ {print $4}')
 	fi
 	if [ "x${WAN_PRIMARY_STATUS}" = "xfalse" ] || [ "x${WAN_PRIMARY_PING}" = "x0" ]; then
 		if [ "${WAN}" = "0" ] || [ "${WAN}" = "1" ]; then
 			/usr/bin/logger -t $0 -p ${LOGGER_ALERT} "Primary WAN Interface is DOWN! Switching traffic to ${WAN_SECONDARY}."
-			/sbin/route del default gw ${GATEWAY_WAN_PRIMARY} ${IFNAME_WAN_PRIMARY} &>/dev/null
-			/sbin/route add default gw ${GATEWAY_WAN_SECONDARY} ${IFNAME_WAN_SECONDARY} &>/dev/null
+			/sbin/route del default gw ${GATEWAY_WAN_PRIMARY} metric ${WAN_PRIMARY_METRIC:-0} ${IFNAME_WAN_PRIMARY} &>/dev/null
+			/sbin/route add default gw ${GATEWAY_WAN_SECONDARY} metric ${WAN_SECONDARY_METRIC:-0} ${IFNAME_WAN_SECONDARY} &>/dev/null
 			WAN=2
 		fi
 	else
 		if [ "${WAN}" = "0" ] || [ "${WAN}" = "2" ]; then
 			/usr/bin/logger -t $0 -p ${LOGGER_ALERT} "Primary WAN Interface is UP! Switching traffic to ${WAN_PRIMARY}."
-			/sbin/route del default gw ${GATEWAY_WAN_SECONDARY} ${IFNAME_WAN_SECONDARY} &>/dev/null
-			/sbin/route add default gw ${GATEWAY_WAN_PRIMARY} ${IFNAME_WAN_PRIMARY} &>/dev/null
+			/sbin/route del default gw ${GATEWAY_WAN_SECONDARY} metric ${WAN_SECONDARY_METRIC:-0} ${IFNAME_WAN_SECONDARY} &>/dev/null
+			/sbin/route add default gw ${GATEWAY_WAN_PRIMARY} metric ${WAN_PRIMARY_METRIC:-0} ${IFNAME_WAN_PRIMARY} &>/dev/null
 			WAN=1
 		fi
 	fi
