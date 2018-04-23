@@ -3,7 +3,7 @@
 START=99
 
 start() {
-	/usr/bin/wanmonitor -d &
+	/usr/sbin/wanmonitor -d &
 }
 
 stop() {
