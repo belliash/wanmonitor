@@ -1,0 +1,118 @@
+#!/bin/sh
+
+# Copyright(C) 2018, Rafal Kupiec <belliash@codingworkshop.eu.org>
+
+source /lib/functions/network.sh
+
+DAEMONIZE=0
+LOGGER_ALERT=1
+LOGGER_CRITICAL=2
+LOGGER_ERROR=3
+LOGGER_WARNING=4
+LOGGER_NOTICE=5
+LOGGER_INFO=6
+LOGGER_DEBUG=7
+
+function initialize() {
+	/usr/bin/logger -t $0 -p ${LOGGER_NOTICE} "Starting WAN Monitor ..."
+	sleep 60
+	/usr/bin/logger -t $0 -p ${LOGGER_NOTICE} "Initializing WAN Monitor & Failover Connection Manager"
+
+	CHECK_HOST=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].check_host)
+	INTERVAL=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].interval)
+	WAN_PRIMARY=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].wan_primary)
+	WAN_SECONDARY=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].wan_secondary)
+
+	network_get_device IFNAME_WAN_PRIMARY ${WAN_PRIMARY}
+	network_get_gateway GATEWAY_WAN_PRIMARY ${WAN_PRIMARY}
+	network_get_device IFNAME_WAN_SECONDARY ${WAN_SECONDARY}
+	network_get_gateway GATEWAY_WAN_SECONDARY ${WAN_SECONDARY}
+
+	if [ "x${IFNAME_WAN_PRIMARY}" = "x" ]; then
+		IFNAME_WAN_PRIMARY=$(/sbin/uci -q -P /var/state get network.${WAN_PRIMARY}.ifname)
+	fi
+
+	if [ "x${GATEWAY_WAN_PRIMARY}" = "x" ]; then
+		GATEWAY_WAN_PRIMARY=$(uci -q -P /var/state get network.${WAN_PRIMARY}.gateway)
+	fi
+	if [ "x${GATEWAY_WAN_PRIMARY}" = "x" ]; then
+		GATEWAY_WAN_PRIMARY=$(ifstatus ${WAN_PRIMARY} | grep -A 2 "\"target\": \"0.0.0.0\"," | awk '/nexthop/ {gsub(/[",]/, "");print $2}')
+	fi
+		
+	if [ "x${IFNAME_WAN_SECONDARY}" = "x" ]; then
+		IFNAME_WAN_SECONDARY=$(/sbin/uci -q -P /var/state get network.${WAN_SECONDARY}.ifname)
+	fi
+
+	if [ "x${GATEWAY_WAN_SECONDARY}" = "x" ]; then
+		GATEWAY_WAN_SECONDARY=$(uci -q -P /var/state get network.${WAN_SECONDARY}.gateway)
+	fi
+	if [ "x${GATEWAY_WAN_SECONDARY}" = "x" ]; then
+		GATEWAY_WAN_SECONDARY=$(ifstatus ${WAN_SECONDARY} | grep -A 2 "\"target\": \"0.0.0.0\"," | awk '/nexthop/ {gsub(/[",]/, "");print $2}')
+	fi
+
+	for IFNAME_WAN in ${IFNAME_WAN_PRIMARY} ${IFNAME_WAN_SECONDARY}; do
+		if [ "x${IFNAME_WAN}" = "x" ]; then
+			/usr/bin/logger -t $0 -p ${LOGGER_CRITICAL} "Lack of logical interface for one of WAN connections!"
+			exit 1
+		fi	
+	done
+
+	for GATEWAY_WAN in ${GATEWAY_WAN_PRIMARY} ${GATEWAY_WAN_SECONDARY}; do
+		if [ "x${GATEWAY_WAN}" = "x" ]; then
+			/usr/bin/logger -t $0 -p ${LOGGER_CRITICAL} "Lack of gateway on logical interface for one of WAN connections!"
+			exit 2
+		fi
+	done
+
+	/usr/bin/logger -t $0 -p ${LOGGER_DEBUG} "Primary WAN Interface: ${IFNAME_WAN_PRIMARY}, Gateway: ${GATEWAY_WAN_PRIMARY}"
+	/usr/bin/logger -t $0 -p ${LOGGER_DEBUG} "Secondary WAN Interface: ${IFNAME_WAN_SECONDARY}, Gateway: ${GATEWAY_WAN_SECONDARY}"
+	/usr/bin/logger -t $0 -p ${LOGGER_DEBUG} "Checking host: ${CHECK_HOST} every ${INTERVAL} seconds interval"
+}
+
+until [[ -z "${1}" ]]; do
+	case "${1}" in
+		-d|--daemon)
+			DAEMONIZE=1
+			;;
+		*)
+			echo "Unknown option: ${1}"
+			;;
+	
+	esac
+	shift
+done
+
+if [ "x${DAEMONIZE}" = "x0" ]; then
+	echo "This program can be running only as daemon. Please use init script."
+	exit 0
+fi
+
+initialize
+/usr/bin/logger -t $0 -p ${LOGGER_NOTICE} "Entering link monitoring loop ..."
+WAN=0
+while true; do
+	WAN_PRIMARY_STATUS=$(ifstatus ${WAN_PRIMARY} | grep grep \"up\" | awk '{gsub(/[",]/, ""); print $2}')
+	if [ "x${WAN_PRIMARY_STATUS}" = "xtrue" ]; then
+		CHECK_ROUTE=$(route | grep ${CHECK_HOST} | grep ${IFNAME_WAN_PRIMARY} | wc -l)
+		if [ "x${CHECK_ROUTE}" = "x0" ]; then
+			/sbin/route add -host ${CHECK_HOST} gateway ${GATEWAY_WAN_PRIMARY} ${IFNAME_WAN_PRIMARY} &>/dev/null
+		fi
+		WAN_PRIMARY_PING=$(ping -I ${IFNAME_WAN_PRIMARY} -w 3 -c 3 ${CHECK_HOST} 2>/dev/null | awk '/packets received/ {print $4}')
+	fi
+	if [ "x${WAN_PRIMARY_STATUS}" = "xfalse" ] || [ "x${WAN_PRIMARY_PING}" = "x0" ]; then
+		if [ "${WAN}" = "0" ] || [ "${WAN}" = "1" ]; then
+			/usr/bin/logger -t $0 -p ${LOGGER_ALERT} "Primary WAN Interface is DOWN! Switching traffic to ${WAN_SECONDARY}."
+			/sbin/route del default gw ${GATEWAY_WAN_PRIMARY} ${IFNAME_WAN_PRIMARY} &>/dev/null
+			/sbin/route add default gw ${GATEWAY_WAN_SECONDARY} ${IFNAME_WAN_SECONDARY} &>/dev/null
+			WAN=2
+		fi
+	else
+		if [ "${WAN}" = "0" ] || [ "${WAN}" = "2" ]; then
+			/usr/bin/logger -t $0 -p ${LOGGER_ALERT} "Primary WAN Interface is UP! Switching traffic to ${WAN_PRIMARY}."
+			/sbin/route del default gw ${GATEWAY_WAN_SECONDARY} ${IFNAME_WAN_SECONDARY} &>/dev/null
+			/sbin/route add default gw ${GATEWAY_WAN_PRIMARY} ${IFNAME_WAN_PRIMARY} &>/dev/null
+			WAN=1
+		fi
+	fi
+	sleep ${INTERVAL}
+done

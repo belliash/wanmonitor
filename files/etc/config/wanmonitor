@@ -1,0 +1,5 @@
+config wanmonitor
+	option check_host	'8.8.4.4'
+	option interval		'5'
+	option wan_primary	'wan1'
+	option wan_secondary	'wan2'
