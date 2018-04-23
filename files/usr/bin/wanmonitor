@@ -13,16 +13,13 @@ LOGGER_NOTICE=5
 LOGGER_INFO=6
 LOGGER_DEBUG=7
 
+CHECK_HOST=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].check_host)
+INTERVAL=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].interval)
+SLEEP=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].sleep)
+WAN_PRIMARY=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].wan_primary)
+WAN_SECONDARY=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].wan_secondary)
+
 function initialize() {
-	/usr/bin/logger -t $0 -p ${LOGGER_NOTICE} "Starting WAN Monitor ..."
-	sleep 60
-	/usr/bin/logger -t $0 -p ${LOGGER_NOTICE} "Initializing WAN Monitor & Failover Connection Manager"
-
-	CHECK_HOST=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].check_host)
-	INTERVAL=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].interval)
-	WAN_PRIMARY=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].wan_primary)
-	WAN_SECONDARY=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].wan_secondary)
-
 	network_get_device IFNAME_WAN_PRIMARY ${WAN_PRIMARY}
 	network_get_gateway GATEWAY_WAN_PRIMARY ${WAN_PRIMARY}
 	network_get_device IFNAME_WAN_SECONDARY ${WAN_SECONDARY}
@@ -49,6 +46,13 @@ function initialize() {
 	if [ "x${GATEWAY_WAN_SECONDARY}" = "x" ]; then
 		GATEWAY_WAN_SECONDARY=$(ifstatus ${WAN_SECONDARY} | grep -A 2 "\"target\": \"0.0.0.0\"," | awk '/nexthop/ {gsub(/[",]/, "");print $2}')
 	fi
+}
+
+function prepare() {
+	/usr/bin/logger -t $0 -p ${LOGGER_NOTICE} "Starting WAN Monitor ..."
+	sleep ${SLEEP}
+	/usr/bin/logger -t $0 -p ${LOGGER_NOTICE} "Initializing WAN Monitor & Failover Connection Manager"
+	initialize
 
 	for IFNAME_WAN in ${IFNAME_WAN_PRIMARY} ${IFNAME_WAN_SECONDARY}; do
 		if [ "x${IFNAME_WAN}" = "x" ]; then
@@ -69,6 +73,29 @@ function initialize() {
 	/usr/bin/logger -t $0 -p ${LOGGER_DEBUG} "Checking host: ${CHECK_HOST} every ${INTERVAL} seconds interval"
 }
 
+function status() {
+	echo -e "Primary WAN Interface: ${IFNAME_WAN_PRIMARY}, Gateway: ${GATEWAY_WAN_PRIMARY}"
+	echo -e "Secondary WAN Interface ${IFNAME_WAN_SECONDARY}, Gateway: ${GATEWAY_WAN_SECONDARY}"
+	echo -e "Checking host: ${CHECK_HOST} every ${INTERVAL} seconds interval"
+	echo
+	ACTIVE=$(/bin/ps | grep 'wanmonitor -d' | grep -v 'grep' | wc -l)
+	if [ "x${ACTIVE}" = "x0" ]; then
+		echo -e "WAN Monitor & Failover Connection Manager is NOT RUNNING"
+	else
+		echo -e "WAN Monitor & Failover Connection Manager is RUNNING"
+	fi
+	ACTIVE_INTERFACE=$(route | grep default | awk '{print $8}')
+	if [ "x${ACTIVE_INTERFACE}" = "x${IFNAME_WAN_PRIMARY}" ]; then
+		ACTIVE_WAN="${WAN_PRIMARY}"
+	elif [ "x${ACTIVE_INTERFACE}" = "x${IFNAME_WAN_SECONDARY}" ]; then
+		ACTIVE_WAN="${WAN_SECONDARY}"
+	else
+		ACTIVE_WAN="UNKNOWN"
+	fi
+	echo -e "Active WAN connection: ${ACTIVE_WAN}"
+}
+
+
 until [[ -z "${1}" ]]; do
 	case "${1}" in
 		-d|--daemon)
@@ -83,11 +110,12 @@ until [[ -z "${1}" ]]; do
 done
 
 if [ "x${DAEMONIZE}" = "x0" ]; then
-	echo "This program can be running only as daemon. Please use init script."
+	initialize
+	status
 	exit 0
 fi
 
-initialize
+prepare
 /usr/bin/logger -t $0 -p ${LOGGER_NOTICE} "Entering link monitoring loop ..."
 WAN=0
 while true; do

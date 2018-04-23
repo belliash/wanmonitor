@@ -4,6 +4,7 @@ WAN Monitor &amp; Failover Connection Manager
 All configuration is done in /etc/config/wanmonitor file. Options available:
 * check_host - IP address of remote host used to check Internet connectivity
 * interval - Number of seconds to wait between checks
+* sleep - number of seconds to wait for slow links during startup
 * wan_primary - Primary WAN interface name to use
 * wan_secondary - Secondary WAN interface name to use
 
