@@ -91,7 +91,7 @@ initialize
 /usr/bin/logger -t $0 -p ${LOGGER_NOTICE} "Entering link monitoring loop ..."
 WAN=0
 while true; do
-	WAN_PRIMARY_STATUS=$(ifstatus ${WAN_PRIMARY} | grep grep \"up\" | awk '{gsub(/[",]/, ""); print $2}')
+	WAN_PRIMARY_STATUS=$(ifstatus ${WAN_PRIMARY} | grep \"up\" | awk '{gsub(/[",]/, ""); print $2}')
 	if [ "x${WAN_PRIMARY_STATUS}" = "xtrue" ]; then
 		CHECK_ROUTE=$(route | grep ${CHECK_HOST} | grep ${IFNAME_WAN_PRIMARY} | wc -l)
 		if [ "x${CHECK_ROUTE}" = "x0" ]; then
