@@ -17,7 +17,7 @@ CHECK_HOST=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].check_host)
 INTERVAL=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].interval)
 SLEEP=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].sleep)
 WAN_PRIMARY=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].wan_primary)
-WAN_RIMARY_METRIC=$(/sbin/uci -q get network.${WAN_PRIMARY}.metric)
+WAN_PRIMARY_METRIC=$(/sbin/uci -q get network.${WAN_PRIMARY}.metric)
 WAN_SECONDARY=$(/sbin/uci -q get wanmonitor.@wanmonitor[0].wan_secondary)
 WAN_SECONDARY_METRIC=$(/sbin/uci -q get network.${WAN_SECONDARY}.metric)
 
