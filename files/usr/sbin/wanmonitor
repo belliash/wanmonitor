@@ -123,8 +123,8 @@ WAN=0
 while true; do
 	WAN_PRIMARY_STATUS=$(ifstatus ${WAN_PRIMARY} | grep \"up\" | awk '{gsub(/[",]/, ""); print $2}')
 	if [ "x${WAN_PRIMARY_STATUS}" = "xtrue" ]; then
-		CHECK_ROUTE=$(route | grep ${CHECK_HOST} | grep ${IFNAME_WAN_PRIMARY} | wc -l)
-		if [ "x${CHECK_ROUTE}" = "x0" ]; then
+		CHECK_HOST_ROUTE=$(route | grep ${CHECK_HOST} | grep ${IFNAME_WAN_PRIMARY} | wc -l)
+		if [ "x${CHECK_HOST_ROUTE}" = "x0" ]; then
 			/sbin/route add -host ${CHECK_HOST} gateway ${GATEWAY_WAN_PRIMARY} metric 0 ${IFNAME_WAN_PRIMARY} &>/dev/null
 		fi
 		WAN_PRIMARY_PING=$(ping -I ${IFNAME_WAN_PRIMARY} -w 3 -c 3 ${CHECK_HOST} 2>/dev/null | awk '/packets received/ {print $4}')
@@ -133,14 +133,20 @@ while true; do
 		if [ "${WAN}" = "0" ] || [ "${WAN}" = "1" ]; then
 			/usr/bin/logger -t $0 -p ${LOGGER_ALERT} "Primary WAN Interface is DOWN! Switching traffic to ${WAN_SECONDARY}."
 			/sbin/route del default gw ${GATEWAY_WAN_PRIMARY} metric ${WAN_PRIMARY_METRIC:-0} ${IFNAME_WAN_PRIMARY} &>/dev/null
-			/sbin/route add default gw ${GATEWAY_WAN_SECONDARY} metric ${WAN_SECONDARY_METRIC:-0} ${IFNAME_WAN_SECONDARY} &>/dev/null
+			CHECK_SECONDARY_ROUTE=$(route | grep default | grep ${IFNAME_WAN_SECONDARY} | wc -l)
+			if [ "x${CHECK_SECONDARY_ROUTE}" = "x0" ]; then
+				/sbin/route add default gw ${GATEWAY_WAN_SECONDARY} metric ${WAN_SECONDARY_METRIC:-0} ${IFNAME_WAN_SECONDARY} &>/dev/null
+			fi
 			WAN=2
 		fi
 	else
 		if [ "${WAN}" = "0" ] || [ "${WAN}" = "2" ]; then
 			/usr/bin/logger -t $0 -p ${LOGGER_ALERT} "Primary WAN Interface is UP! Switching traffic to ${WAN_PRIMARY}."
 			/sbin/route del default gw ${GATEWAY_WAN_SECONDARY} metric ${WAN_SECONDARY_METRIC:-0} ${IFNAME_WAN_SECONDARY} &>/dev/null
-			/sbin/route add default gw ${GATEWAY_WAN_PRIMARY} metric ${WAN_PRIMARY_METRIC:-0} ${IFNAME_WAN_PRIMARY} &>/dev/null
+			CHECK_PRIMARY_ROUTE=$(route | grep default | grep ${IFNAME_WAN_PRIMARY} | wc -l)
+			if [ "x${CHECK_PRIMARY_ROUTE}" = "x0" ]; then
+				/sbin/route add default gw ${GATEWAY_WAN_PRIMARY} metric ${WAN_PRIMARY_METRIC:-0} ${IFNAME_WAN_PRIMARY} &>/dev/null
+			fi
 			WAN=1
 		fi
 	fi
