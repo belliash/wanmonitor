@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=wanmonitor
-PKG_RELEASE:=20180423
+PKG_RELEASE:=20180424
 
 PKG_BUILD_DIR := $(BUILD_DIR)/$(PKG_NAME)
 
