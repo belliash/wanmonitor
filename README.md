@@ -1,5 +1,18 @@
 # WAN Monitor &amp; Failover Connection Manager
 
+The wanmonitor package is an agent script that makes Multi-WAN configuration simple,
+easy to use and manageable. It comes complete with failover setup supporting many
+types of internet connections, including PPPoE and mobile connections. The uci
+configuration file /etc/config/wanmonitor is provided as part of the wanmonitorpackage.
+
+The WanMonitor provides the following capabilities:
+* provides outbound WAN traffic failover connection setup
+* monitors primary link by checking interface status and repeated ping tests
+* automatically routes outbound traffic to secondary WAN interface if primary is down
+* automatically routes outbound traffic back to primary interface when it is available again
+* easy to use and manageable configuration via single file
+* up to 2 physical interfaces for easy load-balancing setups
+
 
 # Configuration
 
