@@ -34,7 +34,7 @@ save mobile traffic).
 # Sample configuration
 
 /etc/config/network:
-<pre>config interface 'wan1'
+	config interface 'wan1'
         option ifname 'eth0'
         option metric '0'
         option proto 'pppoe'
@@ -42,17 +42,17 @@ save mobile traffic).
         option password 'password'
         option service 'PPPoE'
 
-config interface 'wan2'
+	config interface 'wan2'
         option ifname 'eth1'
         option proto 'dhcp'
         option metric '5'
         option defaultroute '0'
-        option service 'LTE'</pre>
+        option service 'LTE'
 
 /etc/config/wanmonitor:
-<pre>config wanmonitor
+	config wanmonitor
         option check_host '8.8.8.8'
         option interval '5'
         option sleep '5'
         option wan_primary 'wan1'
-        option wan_secondary 'wan2'</pre>
+        option wan_secondary 'wan2'
