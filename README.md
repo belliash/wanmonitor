@@ -1,7 +1,7 @@
 # Archived: Project has been moved to [CodingWorkshop](https://git.codingworkshop.eu.org/)!
 
 This repository will probably NOT be updated anymore.
-Check [CodingWorkshop GIT](https://git.codingworkshop.eu.org/) for up-to-date version and other projects.
+Check [CodingWorkshop GIT](https://git.codingworkshop.eu.org/belliash/wanmonitor) for up-to-date version and other projects.
 
 
 # WAN Monitor &amp; Failover Connection Manager
