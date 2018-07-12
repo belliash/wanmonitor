@@ -1,3 +1,9 @@
+# Archived: Project has been moved to [CodingWorkshop GIT](https://git.codingworkshop.eu.org/)!
+
+This repository will probably NOT be updated anymore.
+Check [CodingWorkshop GIT](https://git.codingworkshop.eu.org/) for up-to-date version and other projects.
+
+
 # WAN Monitor &amp; Failover Connection Manager
 
 The wanmonitor package is an agent script that makes Multi-WAN configuration simple,
@@ -34,7 +40,7 @@ save mobile traffic).
 # Sample configuration
 
 /etc/config/network:
-	config interface 'wan1'
+<pre>	config interface 'wan1'
         option ifname 'eth0'
         option metric '0'
         option proto 'pppoe'
@@ -47,12 +53,12 @@ save mobile traffic).
         option proto 'dhcp'
         option metric '5'
         option defaultroute '0'
-        option service 'LTE'
+        option service 'LTE'</pre>
 
 /etc/config/wanmonitor:
-	config wanmonitor
+<pre>	config wanmonitor
         option check_host '8.8.8.8'
         option interval '5'
         option sleep '5'
         option wan_primary 'wan1'
-        option wan_secondary 'wan2'
+        option wan_secondary 'wan2'</pre>
